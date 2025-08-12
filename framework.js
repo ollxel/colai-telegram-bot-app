@@ -1389,3 +1389,122 @@ export class NeuralCollaborativeFramework {
         return languageNames[code] || code;
     }
 }
+
+
+// modules/framework.js
+
+export class NeuralCollaborativeFramework {
+    constructor() {
+        // Initialize the Telegram Web App SDK as soon as the class is created
+        this.tg = window.Telegram.WebApp;
+        this.tg.expand();
+        
+        // Find all interactive elements on the page
+        this.elements = {
+            startBtn: document.getElementById('start-discussion'),
+            resetBtn: document.getElementById('reset-project'),
+            projectDescription: document.getElementById('project-description'),
+            iterationInput: document.getElementById('max-iterations-input'),
+            iterationSlider: document.getElementById('max-iterations'),
+            iterationValue: document.getElementById('iteration-value'),
+            tempSlider: document.getElementById('temperature'),
+            tempValue: document.getElementById('temperature-value'),
+            tokensSlider: document.getElementById('max-tokens'),
+            tokensValue: document.getElementById('tokens-value'),
+            networkCheckboxes: document.querySelectorAll('input[id^="use-network"]'),
+            toggleSettingsBtn: document.getElementById('toggle-settings'),
+            advancedSettingsPanel: document.getElementById('advanced-settings')
+        };
+        
+        // Attach all event listeners
+        this.initializeEventListeners();
+    }
+
+    initializeEventListeners() {
+        this.elements.startBtn.addEventListener('click', () => this.startCollaboration());
+        
+        // Sync sliders with number inputs and value displays
+        this.elements.iterationInput.addEventListener('input', (e) => this.syncSlider(this.elements.iterationSlider, e.target.value));
+        this.elements.iterationSlider.addEventListener('input', (e) => this.syncInput(this.elements.iterationInput, e.target.value));
+        
+        this.elements.tempSlider.addEventListener('input', () => this.updateSliderValue(this.elements.tempSlider, this.elements.tempValue, 10, 1));
+        this.elements.tokensSlider.addEventListener('input', () => this.updateSliderValue(this.elements.tokensSlider, this.elements.tokensValue));
+
+        // Toggle advanced settings visibility
+        this.elements.toggleSettingsBtn.addEventListener('click', () => this.toggleAdvancedSettings());
+    }
+
+    // --- Core Logic ---
+
+    startCollaboration() {
+        const projectDescription = this.elements.projectDescription.value;
+
+        if (!projectDescription || projectDescription.trim().length < 10) {
+            this.tg.showAlert('Пожалуйста, введите более подробное описание проекта (минимум 10 символов).');
+            return;
+        }
+
+        const enabledNetworks = Array.from(this.elements.networkCheckboxes)
+            .filter(cb => cb.checked)
+            .map(cb => `network${cb.id.replace('use-network', '')}`);
+
+        if (enabledNetworks.length === 0) {
+            this.tg.showAlert('Пожалуйста, включите хотя бы одну нейросеть для обсуждения.');
+            return;
+        }
+
+        const settings = {
+            topic: projectDescription.trim(),
+            iterations: parseInt(this.elements.iterationInput.value, 10),
+            enabled_networks: enabledNetworks,
+            temperature: parseFloat(this.elements.tempValue.textContent),
+            max_tokens: parseInt(this.elements.tokensValue.textContent, 10),
+            // Вы можете добавить сюда сбор данных из других полей, если потребуется
+        };
+
+        // This is the key function that sends all collected data to your bot
+        this.tg.sendData(JSON.stringify(settings));
+
+        // Notify the user and close the app
+        this.tg.showPopup({
+            title: 'Принято!',
+            message: 'Запускаю коллаборацию. Результаты будут появляться в чате с ботом.',
+            buttons: [{ type: 'ok', text: 'Понятно' }]
+        }, () => {
+            this.tg.close();
+        });
+    }
+
+    // --- UI Helper Methods ---
+
+    syncSlider(slider, value) {
+        slider.value = value;
+        this.updateSliderValue(slider, this.elements.iterationValue);
+    }
+
+    syncInput(input, value) {
+        input.value = value;
+        this.updateSliderValue(this.elements.iterationSlider, this.elements.iterationValue);
+    }
+
+    updateSliderValue(slider, displayElement, divisor = 1, fixed = 0) {
+        const value = (slider.value / divisor).toFixed(fixed);
+        displayElement.textContent = value;
+        if (slider.id.includes('iterations')) {
+             this.elements.iterationInput.value = value;
+        }
+    }
+
+    toggleAdvancedSettings() {
+        const panel = this.elements.advancedSettingsPanel;
+        const button = this.elements.toggleSettingsBtn;
+        
+        if (panel.classList.contains('visible')) {
+            panel.classList.remove('visible');
+            button.textContent = 'Show';
+        } else {
+            panel.classList.add('visible');
+            button.textContent = 'Hide';
+        }
+    }
+}
